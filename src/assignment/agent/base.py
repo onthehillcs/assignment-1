@@ -16,6 +16,7 @@ from typing import Any
 
 from dotenv import load_dotenv
 from openai import OpenAI
+import yaml
 
 from assignment.env import Environment
 from assignment.agent.tools import INVOKE_SKILL_TOOL
@@ -150,21 +151,46 @@ class Agent:
         if self.skills:
             self.tools.append(INVOKE_SKILL_TOOL)
 
-        # TODO(1.1.a): Add machinery to maintain agent state as it takes actions
-        # and observes the results.
+        self.history: list[dict[str, Any]] = []
 
     def load_skills(self, skills_path: Path) -> dict[str, dict[str, str]]:
         """Load the skill folders exposed to this agent."""
 
-        # TODO(1.4): Validate ``skills_path``, discover one ``SKILL.md``
-        # per child directory, parse its YAML frontmatter (what's between the
-        # `---` tags at the head of the file), and return a mapping
-        # keyed by the frontmatter ``name``. Each value must contain a concise
-        # ``metadata`` string for the model's skill catalog and the complete
-        # ``content`` of the skill file for ``invoke_skill``. Reject duplicate
-        # names and malformed or missing frontmatter with a clear
-        # ``ValueError``.
-        raise NotImplementedError
+        if not skills_path.is_dir():
+            raise ValueError(f"Skills path must be an existing directory: {skills_path}")
+
+        skills: dict[str, dict[str, str]] = {}
+        for directory in sorted(skills_path.iterdir()):
+            skill_file = directory / "SKILL.md"
+            if not directory.is_dir() or not skill_file.is_file():
+                continue
+
+            content = skill_file.read_text(encoding="utf-8")
+            lines = content.splitlines()
+            if not lines or lines[0].strip() != "---":
+                raise ValueError(f"Missing YAML frontmatter in {skill_file}")
+            try:
+                end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+            except StopIteration as exc:
+                raise ValueError(f"Unterminated YAML frontmatter in {skill_file}") from exc
+            try:
+                frontmatter = yaml.safe_load("\n".join(lines[1:end]))
+            except yaml.YAMLError as exc:
+                raise ValueError(f"Malformed YAML frontmatter in {skill_file}: {exc}") from exc
+            if not isinstance(frontmatter, dict):
+                raise ValueError(f"YAML frontmatter must be a mapping in {skill_file}")
+            for field in ("name", "description"):
+                value = frontmatter.get(field)
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"Frontmatter must contain a non-empty {field} in {skill_file}")
+
+            name = frontmatter["name"].strip()
+            if name in skills:
+                raise ValueError(f"Duplicate skill name {name!r} in {skill_file}")
+            description = " ".join(frontmatter["description"].split())
+            skills[name] = {"metadata": f"{name}: {description}", "content": content}
+
+        return skills
 
     def query_language_model(self) -> dict[str, Any]:
         """Send one tool-enabled Chat Completions request and normalize it."""
@@ -218,16 +244,11 @@ class Agent:
         return response.choices[0].message.model_dump(exclude_none=True)
 
     def build_prompt(self) -> list[dict[str, Any]]:
-        # TODO(1.1.a): Construct a sequence of messages that form the language
-        # model prompt. This should include standing instructions, task
-        # specification, prior interaction including observations, reasoning,
-        # and actions from previous turns. Note that this method should be
-        # domain-agnostic and construct the prompt in a way that would apply
-        # to any of the inheriting domain-specific agents.
-
-        # You want to be careful about which attributes of the class you modify
-        # here as they may also be handled by the subclasses.
-        raise NotImplementedError
+        return [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": self.task_prompt},
+            *self.history,
+        ]
 
     def estimate_active_prompt_tokens(self) -> int:
         """Estimate the next prompt, calibrated by the provider's latest usage."""
@@ -323,20 +344,18 @@ class Agent:
         """Run ReAct steps, always saving the trajectory and stopping Modal."""
 
         try:
-            # TODO(1.2) Run the ReAct loop. Orchestrate the sequence of
-            # prompting the language model to produce reasoning and actions,
-            # extracting the tool calls produced by the model, and executing
-            # the tool calls to obtain the agent's observation for the next
-            # step. Ensure you identify when the agent has completed the task
-            # by setting `Agent.finished`. If the agent exceeds the
-            # `step_limit`, raise `StepLimitError`.
+            while not self.finished:
+                if self.steps_taken >= self.step_limit:
+                    raise StepLimitError(
+                        f"Agent reached its step limit of {self.step_limit}."
+                    )
 
-            # TODO(2.2) Call `maybe_compact_context()` before each new action
-            # request in your shared loop. It already estimates active tokens
-            # and handles the threshold, and tracks compaction events for
-            # logging.
-
-            raise NotImplementedError
+                self.maybe_compact_context()
+                message = self.query_language_model()
+                self.history.append(message)
+                tool_calls = message.get("tool_calls") or []
+                if tool_calls:
+                    self.history.extend(self.execute_tool_calls(tool_calls))
         finally:
             # This block is provided infrastructure. Do not modify it: a
             # trajectory is required even when a run fails.
