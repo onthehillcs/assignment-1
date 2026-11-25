@@ -130,13 +130,78 @@ INVOKE_SKILL_TOOL = {
     },
 }
 
-# TODO(3.1.a): Define an OpenAI function-tool schema named ``play_move``.
-# It must accept exactly one required string argument named ``move``, explain
-# that moves use UCI notation (for example e2e4), and reject extra arguments.
-PLAY_MOVE_TOOL: dict = {}
+PLAY_MOVE_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "play_move",
+        "description": "Play a chess move using UCI notation (for example e2e4).",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "move": {
+                    "type": "string",
+                    "description": "The move in UCI notation (for example e2e4).",
+                },
+            },
+            "required": ["move"],
+            "additionalProperties": False,
+        },
+    },
+}
 
-# TODO(3.3): Define the `simulate_move` tool, like the `play_move` tool.
-SIMULATE_MOVE_TOOL: dict = {}
+SIMULATE_MOVE_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "simulate_move",
+        "description": (
+            "Inspect a chess position or simulate one move for either side without "
+            "changing the live game. Returns the resulting position, legal moves, "
+            "and terminal status."
+        ),
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "fen": {
+                    "type": "string",
+                    "description": "The complete six-field FEN of the position.",
+                },
+                "move": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "The move in UCI notation (for example e2e4), or null to "
+                        "inspect the position without making a move."
+                    ),
+                },
+            },
+            "required": ["fen", "move"],
+            "additionalProperties": False,
+        },
+    },
+}
 
-# TODO()
-RUN_PYTHON_TOOL: dict = {}
+RUN_PYTHON_TOOL: dict = {
+    "type": "function",
+    "function": {
+        "name": "run_python",
+        "description": (
+            "Run Python code in the sandbox with the registered chess tools "
+            "available by name. Use simulate_move(fen, move=None) to explore "
+            "positions and play_move(move) to play the chosen move in the live "
+            "game. Returns stdout, stderr, and any execution error."
+        ),
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The Python source code to execute.",
+                },
+            },
+            "required": ["code"],
+            "additionalProperties": False,
+        },
+    },
+}

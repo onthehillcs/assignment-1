@@ -192,7 +192,7 @@ COMPACT_THRESHOLD=6000 \
 SWEBENCH_PATCH=artifacts/django__django-15368.patch \
 SWEBENCH_TRAJECTORY=artifacts/django__django-15368-trajectory.json \
 make run-swebench-agent INSTANCE=django__django-15368
-make check-swebench INSTANCE=django__django-15368
+make check-swebench INSTANCE=django__django-15368 MODEL=deepseek-flash
 ```
 
 Set `COMPACT_THRESHOLD=0` to omit the compaction flag and run a full-context
@@ -202,7 +202,7 @@ baseline. Use distinct output names when retaining both runs, for example:
 COMPACT_THRESHOLD=0 \
 SWEBENCH_PATCH=artifacts/django__django-15368-baseline.patch \
 SWEBENCH_TRAJECTORY=artifacts/django__django-15368-baseline-trajectory.json \
-make run-swebench-agent INSTANCE=django__django-15368
+make run-swebench-agent INSTANCE=django__django-15368 MODEL=deepseek-flash
 ```
 
 The submitted compacted run must trigger at least one compaction, materially reduce active context, and produce a patch that passes `check-swebench`. Generation is stochastic, so it need not use fewer ReAct steps than every baseline sample. 
