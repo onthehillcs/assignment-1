@@ -60,7 +60,7 @@ class CodeAgent(Agent):
             "Inspect the repository, make focused changes, and run relevant tests. "
             "Use the execute tool to inspect and modify files and run commands "
             "in the sandbox. Inspect tool results before deciding the next action. "
-            "Use send_message to report progress and results to the user.\n\n"
+            "Use send_message only for final submission; it ends the task.\n\n"
             f"The sandbox's default working directory is {self.env.cwd}.\n\n"
             f"<system_information>\n{system_information}\n</system_information>"
         )
@@ -81,6 +81,8 @@ class CodeAgent(Agent):
         messages = []
         for call in tool_calls:
             try:
+                if self.finished:
+                    raise ValueError("Task already submitted; no further tools may run")
                 function = call["function"]
                 name = function["name"]
                 arguments = json.loads(function["arguments"])
@@ -101,7 +103,8 @@ class CodeAgent(Agent):
                     if not isinstance(summary, str):
                         raise ValueError("summary must be a string")
                     print(summary)
-                    content = "Message sent."
+                    content = "Submission received. Task complete."
+                    self.finished = True
                 else:
                     content = f"Error: Unknown tool {name!r}"
             except (KeyError, TypeError, ValueError) as exc:
