@@ -155,9 +155,8 @@ SIMULATE_MOVE_TOOL: dict = {
     "function": {
         "name": "simulate_move",
         "description": (
-            "Inspect a chess position or simulate one move for either side without "
-            "changing the live game. Returns the resulting position, legal moves, "
-            "and terminal status."
+            "Inspect a chess position in FEN notation or simulate a UCI move "
+            "from that position without changing the game state."
         ),
         "strict": True,
         "parameters": {
@@ -165,13 +164,13 @@ SIMULATE_MOVE_TOOL: dict = {
             "properties": {
                 "fen": {
                     "type": "string",
-                    "description": "The complete six-field FEN of the position.",
+                    "description": "The position to simulate from, in FEN notation.",
                 },
                 "move": {
                     "type": ["string", "null"],
                     "description": (
-                        "The move in UCI notation (for example e2e4), or null to "
-                        "inspect the position without making a move."
+                        "The move in UCI notation (for example e2e4), or null "
+                        "to inspect the position without making a move."
                     ),
                 },
             },
@@ -186,10 +185,11 @@ RUN_PYTHON_TOOL: dict = {
     "function": {
         "name": "run_python",
         "description": (
-            "Run Python code in the sandbox with the registered chess tools "
-            "available by name. Use simulate_move(fen, move=None) to explore "
-            "positions and play_move(move) to play the chosen move in the live "
-            "game. Returns stdout, stderr, and any execution error."
+            "Run Python code in the sandbox. The code can call "
+            "simulate_move(fen, move=None) and play_move(move) as synchronous "
+            "Python functions returning dictionaries. Use simulate_move to "
+            "explore positions and play_move to commit a chosen move. "
+            "Print results to include them in the tool output."
         ),
         "strict": True,
         "parameters": {
@@ -197,7 +197,7 @@ RUN_PYTHON_TOOL: dict = {
             "properties": {
                 "code": {
                     "type": "string",
-                    "description": "The Python source code to execute.",
+                    "description": "The Python code to execute in the sandbox.",
                 },
             },
             "required": ["code"],
